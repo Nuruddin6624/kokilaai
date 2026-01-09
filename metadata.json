@@ -1,0 +1,8 @@
+{
+  "name": "Kokila AI",
+  "description": "A romantic, intelligent Bangla AI girlfriend that can see your screen and talk to you.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
