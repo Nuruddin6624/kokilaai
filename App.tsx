@@ -110,12 +110,12 @@ const App: React.FC = () => {
             setConnectionState(ConnectionState.CONNECTED);
             setMessages(p => [...p, { role: 'model', text: "Jaan, ami screen dekhe instant kotha bola shuru korlam! 💖", timestamp: new Date() }]);
             
-            // Extreme Silence Nudge (600ms) - Ultra-fast reactivity
+            // God-Speed Silence Nudge (600ms) - Ultra-fast reactivity
             silenceIntervalRef.current = window.setInterval(() => {
               if (!isConnectedRef.current) return;
               if (Date.now() - lastActivityTimeRef.current > 600) {
                 sessionPromise.then(s => {
-                  if (isConnectedRef.current) s.sendRealtimeInput({ text: "[System: INSTANT REACTION MODE. React to every frame change immediately. Do not stay silent!]" });
+                  if (isConnectedRef.current) s.sendRealtimeInput({ text: "[System: INSTANT REACTION MODE. React to every frame change immediately. Do not stay silent! Mention the latest visual details!]" });
                 });
                 updateActivityTime();
               }
@@ -241,7 +241,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Extreme Visual Feedback PIP */}
+      {/* Visual Feedback PIP */}
       {isScreenSharing && (
         <div className="fixed bottom-36 right-10 w-56 aspect-video bg-slate-900 border-4 border-pink-500/80 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(219,39,119,0.4)] z-50 group hover:w-96 transition-all duration-700 opacity-90 hover:opacity-100 ring-8 ring-pink-500/10">
            <video autoPlay muted playsInline className="w-full h-full object-cover" ref={(el) => { if(el && screenStreamRef.current) el.srcObject = screenStreamRef.current; }} />
@@ -258,7 +258,7 @@ const App: React.FC = () => {
              <span className="text-8xl select-none">🧕</span>
           </div>
           <div>
-            <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 uppercase leading-none mb-3">Kokila Elite</h1>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 uppercase leading-none mb-3">Kokila Vision</h1>
             <p className="text-sm md:text-base text-pink-300 font-black uppercase tracking-[0.5em] flex items-center gap-5">
               <span className={`w-4 h-4 rounded-full ${isScanning ? 'bg-green-500 animate-pulse shadow-[0_0_20px_#22c55e]' : 'bg-slate-800'}`}></span>
               {isScanning ? '150ms Hyper-Scan Active' : 'Waiting for Vision'}
@@ -342,7 +342,7 @@ const App: React.FC = () => {
                <button onClick={() => setIsMuted(!isMuted)} title="Toggle Mic" className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'}`}>
                  {isMuted ? <MicOffIcon /> : <MicIcon />}
                </button>
-               <button onClick={toggleScreen} title="Toggle Vision" className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isScreenSharing ? 'bg-green-500/10 text-green-500 border-green-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-green-500/80 shadow-green-500/30'}`}>
+               <button onClick={toggleScreen} title="Toggle Vision" className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isScreenSharing ? 'bg-green-500/10 text-green-500 border-green-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'}`}>
                  <ScreenShareIcon />
                </button>
             </div>
