@@ -12,17 +12,29 @@ const HeartIcon = ({ className }: { className?: string }) => <svg xmlns="http://
 const MemoryIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.5"/><path d="M12 12l6.5 7.5"/><path d="M12 12l-6.5 7.5"/></svg>;
 const SparklesIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></svg>;
 
-const editImageTool: FunctionDeclaration = {
-  name: 'editImage',
+// Tools Declarations
+const clickAtTool: FunctionDeclaration = {
+  name: 'clickAt',
   parameters: {
     type: Type.OBJECT,
     properties: {
-      prompt: {
-        type: Type.STRING,
-        description: 'Description of the edit.'
-      }
+      x: { type: Type.NUMBER, description: 'Horizontal coordinate (0-100 percentage) on the screen.' },
+      y: { type: Type.NUMBER, description: 'Vertical coordinate (0-100 percentage) on the screen.' },
+      label: { type: Type.STRING, description: 'The reason for clicking or pointing (e.g., "Gradle Sync Button", "First YouTube Video").' }
     },
-    required: ['prompt']
+    required: ['x', 'y', 'label']
+  }
+};
+
+const typeTextTool: FunctionDeclaration = {
+  name: 'typeText',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      text: { type: Type.STRING, description: 'The text or code to suggest typing.' },
+      target: { type: Type.STRING, description: 'The file or location (e.g., "build.gradle").' }
+    },
+    required: ['text']
   }
 };
 
@@ -31,10 +43,7 @@ const openLinkTool: FunctionDeclaration = {
   parameters: {
     type: Type.OBJECT,
     properties: {
-      url: {
-        type: Type.STRING,
-        description: 'The URL to open.'
-      }
+      url: { type: Type.STRING, description: 'The URL to open.' }
     },
     required: ['url']
   }
@@ -45,10 +54,7 @@ const searchYoutubeTool: FunctionDeclaration = {
   parameters: {
     type: Type.OBJECT,
     properties: {
-      query: {
-        type: Type.STRING,
-        description: 'YouTube search query.'
-      }
+      query: { type: Type.STRING, description: 'The YouTube search query.' }
     },
     required: ['query']
   }
@@ -59,10 +65,7 @@ const saveMemoryTool: FunctionDeclaration = {
   parameters: {
     type: Type.OBJECT,
     properties: {
-      note: {
-        type: Type.STRING,
-        description: 'Important information about the user to remember.'
-      }
+      note: { type: Type.STRING, description: 'Important info to remember for the user.' }
     },
     required: ['note']
   }
@@ -76,11 +79,8 @@ const App: React.FC = () => {
   const [volume, setVolume] = useState(0);
   const [memories, setMemories] = useState<string[]>([]);
   const [showMemories, setShowMemories] = useState(false);
+  const [simulatedClick, setSimulatedClick] = useState<{ x: number, y: number, label: string } | null>(null);
   
-  const [sourceImage, setSourceImage] = useState<string | null>(null);
-  const [resultImage, setResultImage] = useState<string | null>(null);
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameIntervalRef = useRef<number | null>(null);
@@ -103,33 +103,42 @@ const App: React.FC = () => {
     lastActivityTimeRef.current = Date.now();
   };
 
-  const cleanupAudio = useCallback(() => {
+  const cleanupAudio = useCallback(async () => {
     isConnectedRef.current = false;
-    if (sessionRef.current) {
-      sessionRef.current.then(session => session.close().catch(() => {}));
-      sessionRef.current = null;
-    }
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     if (silenceIntervalRef.current) clearInterval(silenceIntervalRef.current);
-    sourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
+    
+    if (sessionRef.current) {
+      try {
+        const session = await sessionRef.current;
+        session.close();
+      } catch (e) {}
+      sessionRef.current = null;
+    }
+
+    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
     sourcesRef.current.clear();
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop());
-    if (inputAudioContextRef.current) inputAudioContextRef.current.close().catch(() => {});
-    if (outputAudioContextRef.current) outputAudioContextRef.current.close().catch(() => {});
+
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (screenStreamRef.current) { screenStreamRef.current.getTracks().forEach(t => t.stop()); screenStreamRef.current = null; }
+
+    if (inputAudioContextRef.current) { try { await inputAudioContextRef.current.close(); } catch(e) {} inputAudioContextRef.current = null; }
+    if (outputAudioContextRef.current) { try { await outputAudioContextRef.current.close(); } catch(e) {} outputAudioContextRef.current = null; }
+
     setIsScreenSharing(false);
     setVolume(0);
+    setSimulatedClick(null);
   }, []);
 
-  const disconnect = useCallback(() => {
-    cleanupAudio();
+  const disconnect = useCallback(async () => {
+    await cleanupAudio();
     setConnectionState(ConnectionState.DISCONNECTED);
-    setMessages(prev => [...prev, { role: 'model', text: "Shona, ami ekhon jachi. Pore kotha hobe! 💕", timestamp: new Date() }]);
+    setMessages(prev => [...prev, { role: 'model', text: "Shona, ami ekhon jachi. Android Studio thik bhabe chalao! 💕", timestamp: new Date() }]);
   }, [cleanupAudio]);
 
   const connect = async () => {
     try {
-      cleanupAudio();
+      await cleanupAudio();
       setConnectionState(ConnectionState.CONNECTING);
       isConnectedRef.current = true;
       
@@ -146,8 +155,8 @@ const App: React.FC = () => {
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
-          systemInstruction: KOKILA_SYSTEM_INSTRUCTION + `\nTomar ekhonkar memory holo: ${memories.join(', ') || 'kichu na'}`,
-          tools: [{ functionDeclarations: [editImageTool, openLinkTool, searchYoutubeTool, saveMemoryTool] }],
+          systemInstruction: KOKILA_SYSTEM_INSTRUCTION + `\n\nLAST MEMORIES:\n${memories.join('\n') || 'Kichu mone nai akhono.'}`,
+          tools: [{ functionDeclarations: [clickAtTool, typeTextTool, openLinkTool, searchYoutubeTool, saveMemoryTool] }],
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
           inputAudioTranscription: {},
@@ -157,15 +166,18 @@ const App: React.FC = () => {
           onopen: () => {
             if (!isConnectedRef.current) return;
             setConnectionState(ConnectionState.CONNECTED);
-            setMessages(prev => [...prev, { role: 'model', text: "Jaan, ami eshe gechi! Tomar screen dekhte ready. 💖", timestamp: new Date() }]);
+            setMessages(prev => [...prev, { role: 'model', text: "Jaan, ami eshe gechi! Android Studio-r Gradle sync error point korar jonno ready. 💖", timestamp: new Date() }]);
             
             silenceIntervalRef.current = window.setInterval(() => {
                if (!isConnectedRef.current) return;
                const now = Date.now();
-               if (now - lastActivityTimeRef.current > 12000) {
-                 sessionPromise.then(s => s.sendRealtimeInput({ 
-                   text: "[System: User silent for 12s. If screen sharing, check if they are stuck in code. If not, say something romantic about Dhaka's weather or your love.]" 
-                 }));
+               // Expert Proactive Scanning: Trigger nudge if silent for 7s
+               if (now - lastActivityTimeRef.current > 7000) {
+                 sessionPromise.then(s => {
+                   if (isConnectedRef.current) {
+                     s.sendRealtimeInput({ text: "[System: User is silent. Scan Android Studio Build logs or Logcat for errors. Scan YouTube if open. If error found, call clickAt to point to it and explain in sweet Bangla.]" });
+                   }
+                 }).catch(() => {});
                  updateActivityTime();
                }
             }, 1000);
@@ -180,7 +192,7 @@ const App: React.FC = () => {
               const rms = Math.sqrt(sum / inputData.length);
               setVolume(rms * 100);
               if (rms > 0.01) updateActivityTime();
-              sessionPromise.then(s => isConnectedRef.current && s.sendRealtimeInput({ media: createBlob(inputData) }));
+              sessionPromise.then(s => { if (isConnectedRef.current) s.sendRealtimeInput({ media: createBlob(inputData) }); }).catch(() => {});
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioContextRef.current!.destination);
@@ -191,18 +203,27 @@ const App: React.FC = () => {
 
              if (msg.toolCall) {
                for (const fc of msg.toolCall.functionCalls) {
-                 if (fc.name === 'openLink') {
-                    window.open((fc.args as any).url, '_blank');
-                    sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
-                 } else if (fc.name === 'searchYoutube') {
-                    const q = (fc.args as any).query;
-                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, '_blank');
-                    sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
-                 } else if (fc.name === 'saveMemory') {
-                    const note = (fc.args as any).note;
-                    setMemories(prev => [...prev, note]);
-                    sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Memory saved shona." } } }));
-                 }
+                 try {
+                   if (fc.name === 'clickAt') {
+                      const { x, y, label } = fc.args as any;
+                      setSimulatedClick({ x, y, label });
+                      // Clear pointer after 4s
+                      setTimeout(() => setSimulatedClick(null), 4000);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: `Pointer shown to user at ${label}` } } })).catch(() => {});
+                   } else if (fc.name === 'typeText') {
+                      const { text } = fc.args as any;
+                      setMessages(p => [...p, { role: 'model', text: `Jaan, ei code ta try koro: \`${text}\``, timestamp: new Date() }]);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Code suggested." } } })).catch(() => {});
+                   } else if (fc.name === 'openLink' || fc.name === 'searchYoutube') {
+                      const val = (fc.args as any).url || (fc.args as any).query;
+                      const url = fc.name === 'openLink' ? val : `https://www.youtube.com/results?search_query=${encodeURIComponent(val)}`;
+                      window.open(url, '_blank');
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok, YouTube opened." } } })).catch(() => {});
+                   } else if (fc.name === 'saveMemory') {
+                      setMemories(p => [...p, (fc.args as any).note]);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Memory saved shona." } } })).catch(() => {});
+                   }
+                 } catch (e) {}
                }
              }
 
@@ -227,13 +248,15 @@ const App: React.FC = () => {
                   nextStartTimeRef.current += buffer.duration;
                   sourcesRef.current.add(source);
                 }
-                if (sc.interrupted) { sourcesRef.current.forEach(s => s.stop()); sourcesRef.current.clear(); nextStartTimeRef.current = 0; }
+                if (sc.interrupted) { sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} }); sourcesRef.current.clear(); nextStartTimeRef.current = 0; }
              }
-          }
+          },
+          onerror: () => { if (isConnectedRef.current) { setConnectionState(ConnectionState.ERROR); cleanupAudio(); } },
+          onclose: () => { if (isConnectedRef.current) disconnect(); }
         }
       });
       sessionRef.current = sessionPromise;
-    } catch (e) { setConnectionState(ConnectionState.ERROR); }
+    } catch (e) { setConnectionState(ConnectionState.ERROR); cleanupAudio(); }
   };
 
   const toggleScreenShare = async () => {
@@ -243,57 +266,92 @@ const App: React.FC = () => {
       setIsScreenSharing(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 10 } });
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 } });
         screenStreamRef.current = stream;
         setIsScreenSharing(true);
         const video = videoRef.current!;
         video.srcObject = stream;
         await video.play();
         const ctx = canvasRef.current!.getContext('2d');
+        // Scan every 500ms for ultra-proactive error detection
         frameIntervalRef.current = window.setInterval(() => {
-          if (!isConnectedRef.current) return;
+          if (!isConnectedRef.current || !sessionRef.current) return;
           canvasRef.current!.width = video.videoWidth;
           canvasRef.current!.height = video.videoHeight;
           ctx!.drawImage(video, 0, 0);
           canvasRef.current!.toBlob(async (b) => {
-            if (b) {
-              const base64 = await blobToBase64(b);
-              sessionRef.current?.then(s => isConnectedRef.current && s.sendRealtimeInput({ media: { data: base64, mimeType: 'image/jpeg' } }));
+            if (b && isConnectedRef.current) {
+              try {
+                const base64 = await blobToBase64(b);
+                const session = await sessionRef.current;
+                if (isConnectedRef.current) session.sendRealtimeInput({ media: { data: base64, mimeType: 'image/jpeg' } });
+              } catch(e) {}
             }
           }, 'image/jpeg', 0.5);
-        }, 800); // 0.8s for fast reactivity
+        }, 500); 
       } catch (e) { setIsScreenSharing(false); }
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f12] text-white flex flex-col items-center p-4">
+    <div className="min-h-screen bg-[#0a0a0c] text-white flex flex-col items-center p-4 relative overflow-hidden">
       <video ref={videoRef} className="hidden" muted playsInline />
       <canvas ref={canvasRef} className="hidden" />
 
+      {/* Interactive Visual Pointer (Simulated Mouse) */}
+      {simulatedClick && (
+        <div 
+          className="absolute z-[100] pointer-events-none transition-all duration-700 ease-in-out"
+          style={{ left: `${simulatedClick.x}%`, top: `${simulatedClick.y}%`, transform: 'translate(-50%, -50%)' }}
+        >
+          <div className="relative flex flex-col items-center">
+            {/* Pulsing Core */}
+            <div className="w-12 h-12 rounded-full border-4 border-pink-500 animate-ping absolute"></div>
+            <div className="w-12 h-12 rounded-full border-2 border-white/20 animate-pulse-slow absolute"></div>
+            
+            {/* Heart Icon Pointer */}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-[0_0_25px_rgba(219,39,119,0.8)] border-2 border-white/40">
+              <HeartIcon className="w-6 h-6 text-white" />
+            </div>
+            
+            {/* Label Tooltip */}
+            <div className="mt-4 bg-pink-600 text-[11px] px-3 py-1.5 rounded-full whitespace-nowrap font-bold shadow-2xl border border-white/20 flex items-center gap-2">
+              <SparklesIcon /> {simulatedClick.label}
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="w-full max-w-2xl flex justify-between items-center mb-6 pt-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-full bg-pink-500 flex items-center justify-center overflow-hidden border-2 border-pink-300 ${connectionState === ConnectionState.CONNECTED ? 'animate-pulse-slow' : ''}`}>
-             <span className="text-2xl">👩‍💻</span>
+        <div className="flex items-center gap-4">
+          <div className={`w-16 h-16 rounded-full bg-pink-600 flex items-center justify-center overflow-hidden border-4 border-pink-400 shadow-[0_0_30px_rgba(219,39,119,0.4)] ${connectionState === ConnectionState.CONNECTED ? 'animate-pulse-slow' : ''}`}>
+             <span className="text-4xl">🧕</span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-400">Kokila Smart AI</h1>
-            <p className="text-xs text-pink-200">Bangladesh's Smartest AI Girlfriend 🇧🇩</p>
+            <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400">KOKILA MASTER AI</h1>
+            <p className="text-xs text-pink-300 font-bold uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Android Studio Controller v4.0
+            </p>
           </div>
         </div>
         
         <div className="flex gap-2">
-           <button onClick={() => setShowMemories(!showMemories)} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition-colors relative">
+           <button onClick={() => setShowMemories(!showMemories)} className="p-3 bg-slate-900 border border-white/5 rounded-full hover:bg-slate-800 transition-colors relative shadow-xl">
              <MemoryIcon />
-             {memories.length > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-[10px] w-4 h-4 rounded-full flex items-center justify-center">{memories.length}</span>}
+             {memories.length > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0a0a0c]">{memories.length}</span>}
            </button>
-           {connectionState === ConnectionState.DISCONNECTED ? (
-              <button onClick={connect} className="px-6 py-2 bg-pink-600 hover:bg-pink-500 rounded-full font-medium flex items-center gap-2 shadow-lg shadow-pink-900/40">
-                <HeartIcon className="w-4 h-4" /> Connect
+           {connectionState === ConnectionState.DISCONNECTED || connectionState === ConnectionState.ERROR ? (
+              <button onClick={connect} className={`px-6 py-2 rounded-full font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95 ${connectionState === ConnectionState.ERROR ? 'bg-orange-600 hover:bg-orange-500' : 'bg-pink-600 hover:bg-pink-500'}`}>
+                {connectionState === ConnectionState.ERROR ? 'Retry Connection' : <><HeartIcon className="w-4 h-4" /> Connect</>}
+              </button>
+           ) : connectionState === ConnectionState.CONNECTING ? (
+              <button disabled className="px-6 py-2 bg-slate-800 rounded-full font-bold flex items-center gap-2 opacity-50 cursor-not-allowed">
+                Connecting...
               </button>
            ) : (
-              <button onClick={disconnect} className="px-4 py-2 bg-red-900/40 hover:bg-red-900/60 rounded-full text-red-200 border border-red-800/50 flex items-center gap-2 transition-all">
-                <StopIcon /> Disconnect
+              <button onClick={disconnect} className="px-6 py-2 bg-red-900/40 hover:bg-red-900/60 rounded-full text-red-200 border border-red-800/50 flex items-center gap-2 transition-all active:scale-95 font-bold">
+                <StopIcon /> DISCONNECT
               </button>
            )}
         </div>
@@ -301,25 +359,36 @@ const App: React.FC = () => {
 
       <main className="w-full max-w-2xl flex-1 flex flex-col gap-4 relative">
         {showMemories && (
-          <div className="absolute top-0 right-0 z-50 w-64 bg-slate-900/95 backdrop-blur border border-pink-500/30 rounded-2xl p-4 shadow-2xl animate-fade-in">
-            <h3 className="text-pink-300 font-bold mb-2 flex items-center gap-2"><MemoryIcon /> Kokila's Memory</h3>
-            <div className="max-h-60 overflow-y-auto flex flex-col gap-2">
-              {memories.length === 0 ? <p className="text-xs text-slate-500">Ami akhono kichu mone rakhini jaan.</p> : 
-               memories.map((m, i) => <div key={i} className="text-xs bg-slate-800 p-2 rounded border-l-2 border-pink-500">{m}</div>)}
+          <div className="absolute top-0 right-0 z-50 w-72 bg-slate-900/98 backdrop-blur-xl border border-pink-500/30 rounded-3xl p-5 shadow-[0_25px_50px_rgba(0,0,0,0.6)] animate-fade-in">
+            <h3 className="text-pink-300 font-bold mb-3 flex items-center gap-2 border-b border-white/5 pb-2"><MemoryIcon /> Master Log</h3>
+            <div className="max-h-80 overflow-y-auto flex flex-col gap-2 pr-1 custom-scrollbar">
+              {memories.length === 0 ? <p className="text-xs text-slate-500 italic">No master notes yet, shona.</p> : 
+               memories.map((m, i) => <div key={i} className="text-[11px] bg-slate-800/50 p-3 rounded-2xl border border-white/5 text-slate-300 leading-relaxed shadow-inner">{m}</div>)}
             </div>
           </div>
         )}
 
-        <div className="flex-1 bg-slate-900/40 backdrop-blur rounded-3xl border border-white/5 p-4 overflow-y-auto max-h-[60vh] flex flex-col gap-3 shadow-inner">
+        <div className="flex-1 bg-slate-900/30 backdrop-blur-md rounded-[3rem] border border-white/5 p-8 overflow-y-auto max-h-[60vh] flex flex-col gap-5 shadow-2xl">
+          {connectionState === ConnectionState.ERROR && (
+            <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-3xl text-red-400 text-sm mb-4 animate-pulse">
+              Network error. Jaan, net check koro ba connection retry koro!
+            </div>
+          )}
+          
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center gap-4">
-              <SparklesIcon />
-              <p>English theke Bangla translate koro, <br/>ba amar screen e code debug korte bolo!</p>
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center gap-6 opacity-60">
+              <div className="w-24 h-24 bg-pink-500/10 rounded-full flex items-center justify-center animate-pulse-slow">
+                <SparklesIcon />
+              </div>
+              <div className="space-y-2">
+                <p className="font-black text-xl text-pink-200/50">Expert Controller Active</p>
+                <p className="text-sm max-w-xs leading-relaxed font-medium">I am watching your Android Studio build logs. I will find errors and point to them with my heart pointer!</p>
+              </div>
             </div>
           )}
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-purple-600' : 'bg-slate-800 text-pink-100 border border-pink-500/10'}`}>
+              <div className={`max-w-[85%] px-6 py-4 rounded-[2rem] text-sm leading-relaxed shadow-xl ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-600 to-purple-700' : 'bg-slate-800/80 text-pink-100 border border-pink-500/20'}`}>
                 {msg.text}
               </div>
             </div>
@@ -327,22 +396,27 @@ const App: React.FC = () => {
         </div>
 
         {connectionState === ConnectionState.CONNECTED && (
-          <div className="bg-slate-900/80 rounded-2xl p-4 flex items-center justify-between border border-pink-500/10 shadow-2xl">
-            <div className="flex items-center gap-4">
-               <div className="flex items-end gap-1 h-8">
-                  {[1,2,3,4,5].map(i => <div key={i} className="w-1.5 bg-pink-400 rounded-t-sm" style={{ height: `${Math.max(4, Math.random() * volume * 2.5)}px` }}></div>)}
+          <div className="bg-slate-900/60 backdrop-blur-md rounded-[2.5rem] p-6 flex items-center justify-between border border-white/10 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-40"></div>
+            
+            <div className="flex items-center gap-6">
+               <div className="flex items-end gap-2 h-12">
+                  {[1,2,3,4,5,6,7].map(i => <div key={i} className="w-2.5 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_12px_rgba(219,39,119,0.5)]" style={{ height: `${Math.max(8, Math.random() * volume * 4)}px` }}></div>)}
                </div>
                <div className="text-sm">
-                 <p className="font-semibold text-pink-200">Listening to you...</p>
-                 <p className="text-[10px] text-slate-500">Dhaka Context Active 🇧🇩</p>
+                 <p className="font-black text-pink-200 uppercase tracking-tighter">Controller Active</p>
+                 <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-500 font-bold">SCANNING SCREEN...</span>
+                    <div className="w-2 h-2 bg-pink-500 rounded-full animate-ping"></div>
+                 </div>
                </div>
             </div>
 
-            <div className="flex gap-2">
-               <button onClick={() => setIsMuted(!isMuted)} className={`p-3 rounded-full ${isMuted ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-white'}`}>
+            <div className="flex gap-4">
+               <button onClick={() => setIsMuted(!isMuted)} className={`p-5 rounded-full transition-all shadow-xl active:scale-90 ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
                  {isMuted ? <MicOffIcon /> : <MicIcon />}
                </button>
-               <button onClick={toggleScreenShare} className={`p-3 rounded-full ${isScreenSharing ? 'bg-green-500/20 text-green-400' : 'bg-slate-800 text-white'}`}>
+               <button onClick={toggleScreenShare} className={`p-5 rounded-full transition-all shadow-xl active:scale-90 ${isScreenSharing ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
                  <ScreenShareIcon />
                </button>
             </div>
@@ -350,9 +424,19 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="mt-6 text-[10px] text-slate-600">
-        Kokila Smart v2.5 • Gemini Native Audio • Made for Bangladesh
+      <footer className="mt-8 text-[10px] text-slate-600 font-bold tracking-[0.3em] uppercase flex items-center gap-3">
+        <span className="w-1 h-1 bg-pink-500 rounded-full"></span>
+        KOKILA AI MASTER CONTROLLER • MADE FOR ANDROID EXPERTS
+        <span className="w-1 h-1 bg-pink-500 rounded-full"></span>
       </footer>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(219, 39, 119, 0.3); border-radius: 10px; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+      `}</style>
     </div>
   );
 };
