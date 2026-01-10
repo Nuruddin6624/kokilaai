@@ -1,37 +1,65 @@
-export async function decodeAudioData(audioData: Uint8Array, ctx: AudioContext, sampleRate: number, channels: number) {
-  const pcmData = decode(audioData);
-  const buffer = ctx.createBuffer(channels, pcmData.length / channels, sampleRate);
-  for (let ch = 0; ch < channels; ch++) {
-    const channelData = buffer.getChannelData(ch);
-    for (let i = 0; i < channelData.length; i++) {
-      channelData[i] = pcmData[ch + i * channels] / 32768;
+import { Blob } from '@google/genai';
+
+export function decode(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export function encode(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+export async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
     }
   }
   return buffer;
 }
 
-export function createBlob(inputData: Float32Array) {
-  const pcmData = new Int16Array(inputData.length);
-  for (let i = 0; i < inputData.length; i++) {
-    pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+export function createBlob(data: Float32Array): Blob {
+  const l = data.length;
+  const int16 = new Int16Array(l);
+  for (let i = 0; i < l; i++) {
+    int16[i] = data[i] * 32768;
   }
-  return new Blob([pcmData.buffer], { type: 'audio/pcm;bits=16;rate=16000;channels=1' });
+  return {
+    data: encode(new Uint8Array(int16.buffer)),
+    mimeType: 'audio/pcm;rate=16000',
+  };
 }
 
-export async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve) => {
+export async function blobToBase64(blob: globalThis.Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      // Remove data url prefix
+      const base64 = base64String.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
 }
-
-const decode = (encoded: Uint8Array): Int16Array => {
-  const decoded = new Int16Array(encoded.length);
-  for (let i = 0; i < encoded.length; i += 2) {
-    decoded[i / 2] = (encoded[i + 1] << 8) | encoded[i];
-  }
-  return decoded;
-};
-
-export { decode };
