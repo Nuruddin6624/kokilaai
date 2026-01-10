@@ -243,7 +243,7 @@ const App: React.FC = () => {
 
       {/* Visual Feedback PIP */}
       {isScreenSharing && (
-        <div className="fixed bottom-36 right-10 w-56 aspect-video bg-slate-900 border-4 border-pink-500/80 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(219,39,119,0.4)] z-50 group hover:w-96 transition-all duration-700 opacity-90 hover:opacity-100 ring-8 ring-pink-500/10">
+        <div className="fixed bottom-40 right-10 w-56 aspect-video bg-slate-900 border-4 border-pink-500/80 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(219,39,119,0.4)] z-50 group hover:w-96 transition-all duration-700 opacity-90 hover:opacity-100 ring-8 ring-pink-500/10">
            <video autoPlay muted playsInline className="w-full h-full object-cover" ref={(el) => { if(el && screenStreamRef.current) el.srcObject = screenStreamRef.current; }} />
            <div className="absolute top-3 left-3 bg-pink-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] animate-pulse flex items-center gap-2">
              <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -294,7 +294,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div className="flex-1 bg-slate-900/5 backdrop-blur-3xl rounded-[6rem] border border-white/5 p-12 md:p-16 overflow-y-auto max-h-[45vh] flex flex-col gap-10 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] relative">
+        <div className="flex-1 bg-slate-900/5 backdrop-blur-3xl rounded-[6rem] border border-white/5 p-12 md:p-16 overflow-y-auto max-h-[40vh] flex flex-col gap-10 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] relative">
           {connectionState === ConnectionState.ERROR && (
              <div className="bg-red-500/20 border border-red-500/50 p-12 rounded-[4rem] text-red-400 text-sm mb-6 animate-pulse text-center font-black uppercase tracking-[0.4em] shadow-4xl">
                SYNC INTERRUPTED: RETRY JAAN!
@@ -321,33 +321,41 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {connectionState === ConnectionState.CONNECTED && (
-          <div className="bg-slate-900/90 backdrop-blur-[50px] rounded-[5rem] p-10 md:p-14 flex items-center justify-between border border-white/10 shadow-5xl relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-60 group-hover:opacity-100 transition-all duration-700"></div>
-            
-            <div className="flex items-center gap-10 md:gap-14">
-               <div className="flex items-end gap-3 md:gap-5 h-24 md:h-28">
-                  {[...Array(18)].map((_, i) => <div key={i} className="w-4 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_40px_rgba(219,39,119,0.9)]" style={{ height: `${Math.max(20, Math.random() * volume * 9)}px` }}></div>)}
+        {/* Always Visible Control Bar at Bottom */}
+        <div className="bg-slate-900/90 backdrop-blur-[50px] rounded-[5rem] p-10 md:p-14 flex items-center justify-between border border-white/10 shadow-5xl relative overflow-hidden group mb-4">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-60 group-hover:opacity-100 transition-all duration-700"></div>
+          
+          <div className="flex items-center gap-10 md:gap-14">
+             <div className="flex items-end gap-3 md:gap-5 h-24 md:h-28">
+                {[...Array(18)].map((_, i) => <div key={i} className="w-4 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_40px_rgba(219,39,119,0.9)]" style={{ height: `${connectionState === ConnectionState.CONNECTED ? Math.max(20, Math.random() * volume * 9) : 10}px` }}></div>)}
+             </div>
+             <div className="text-sm">
+               <p className="font-black text-pink-200 uppercase tracking-tighter text-4xl md:text-5xl leading-none mb-3 md:mb-4">Live Sync</p>
+               <div className="flex items-center gap-6">
+                  <span className="text-[12px] md:text-[14px] text-slate-500 font-black uppercase tracking-[0.6em]">{isScanning ? '150ms God-Vision' : 'Standby'}</span>
+                  <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full ${isScanning ? 'bg-pink-500 animate-ping shadow-[0_0_30px_#db2777]' : 'bg-slate-700'}`}></div>
                </div>
-               <div className="text-sm">
-                 <p className="font-black text-pink-200 uppercase tracking-tighter text-4xl md:text-5xl leading-none mb-3 md:mb-4">Live Sync</p>
-                 <div className="flex items-center gap-6">
-                    <span className="text-[12px] md:text-[14px] text-slate-500 font-black uppercase tracking-[0.6em]">150ms God-Vision</span>
-                    <div className="w-4 h-4 md:w-5 md:h-5 bg-pink-500 rounded-full animate-ping shadow-[0_0_30px_#db2777]"></div>
-                 </div>
-               </div>
-            </div>
-
-            <div className="flex gap-6 md:gap-8">
-               <button onClick={() => setIsMuted(!isMuted)} title="Toggle Mic" className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'}`}>
-                 {isMuted ? <MicOffIcon /> : <MicIcon />}
-               </button>
-               <button onClick={toggleScreen} title="Toggle Vision" className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isScreenSharing ? 'bg-green-500/10 text-green-500 border-green-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'}`}>
-                 <ScreenShareIcon />
-               </button>
-            </div>
+             </div>
           </div>
-        )}
+
+          <div className="flex gap-6 md:gap-8">
+             <button 
+               onClick={() => setIsMuted(!isMuted)} 
+               disabled={connectionState !== ConnectionState.CONNECTED}
+               title="Toggle Mic" 
+               className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'} ${connectionState !== ConnectionState.CONNECTED ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+             >
+               {isMuted ? <MicOffIcon /> : <MicIcon />}
+             </button>
+             <button 
+               onClick={toggleScreen} 
+               title="Toggle Screen Vision" 
+               className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isScreenSharing ? 'bg-green-500/20 text-green-500 border-green-500/80 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-green-500/80 shadow-green-500/30'}`}
+             >
+               <ScreenShareIcon />
+             </button>
+          </div>
+        </div>
       </main>
 
       <footer className="mt-14 text-[14px] text-slate-700 font-black tracking-[0.8em] uppercase flex items-center gap-8 px-10 text-center opacity-40">
