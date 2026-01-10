@@ -80,6 +80,7 @@ const App: React.FC = () => {
   const [memories, setMemories] = useState<string[]>([]);
   const [showMemories, setShowMemories] = useState(false);
   const [simulatedClick, setSimulatedClick] = useState<{ x: number, y: number, label: string } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -128,12 +129,13 @@ const App: React.FC = () => {
     setIsScreenSharing(false);
     setVolume(0);
     setSimulatedClick(null);
+    setIsScanning(false);
   }, []);
 
   const disconnect = useCallback(async () => {
     await cleanupAudio();
     setConnectionState(ConnectionState.DISCONNECTED);
-    setMessages(prev => [...prev, { role: 'model', text: "Shona, ami ekhon jachi. Android Studio thik bhabe chalao! 💕", timestamp: new Date() }]);
+    setMessages(prev => [...prev, { role: 'model', text: "Shona, ami ekhon jachi. Eka eka code koro kintu vul koro na! 💕", timestamp: new Date() }]);
   }, [cleanupAudio]);
 
   const connect = async () => {
@@ -155,7 +157,7 @@ const App: React.FC = () => {
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
-          systemInstruction: KOKILA_SYSTEM_INSTRUCTION + `\n\nLAST MEMORIES:\n${memories.join('\n') || 'Kichu mone nai akhono.'}`,
+          systemInstruction: KOKILA_SYSTEM_INSTRUCTION + `\n\nLAST MEMORIES:\n${memories.join('\n') || 'None yet.'}`,
           tools: [{ functionDeclarations: [clickAtTool, typeTextTool, openLinkTool, searchYoutubeTool, saveMemoryTool] }],
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
@@ -166,16 +168,16 @@ const App: React.FC = () => {
           onopen: () => {
             if (!isConnectedRef.current) return;
             setConnectionState(ConnectionState.CONNECTED);
-            setMessages(prev => [...prev, { role: 'model', text: "Jaan, ami eshe gechi! Android Studio-r Gradle sync error point korar jonno ready. 💖", timestamp: new Date() }]);
+            setMessages(prev => [...prev, { role: 'model', text: "Jaan, ami eshe gechi! Ami screen dekhe kotha bola shuru korlam. 💖", timestamp: new Date() }]);
             
+            // Proactive Nudge: Every 4s check if Kokila is staying silent
             silenceIntervalRef.current = window.setInterval(() => {
                if (!isConnectedRef.current) return;
                const now = Date.now();
-               // Expert Proactive Scanning: Trigger nudge if silent for 7s
-               if (now - lastActivityTimeRef.current > 7000) {
+               if (now - lastActivityTimeRef.current > 4000) {
                  sessionPromise.then(s => {
                    if (isConnectedRef.current) {
-                     s.sendRealtimeInput({ text: "[System: User is silent. Scan Android Studio Build logs or Logcat for errors. Scan YouTube if open. If error found, call clickAt to point to it and explain in sweet Bangla.]" });
+                     s.sendRealtimeInput({ text: "[System: Zero-Silence Mode. Comment immediately on what you see on the screen. If Android Studio is open, talk about the code. If YouTube is open, talk about the video. Always point to interesting things with clickAt.]" });
                    }
                  }).catch(() => {});
                  updateActivityTime();
@@ -207,21 +209,20 @@ const App: React.FC = () => {
                    if (fc.name === 'clickAt') {
                       const { x, y, label } = fc.args as any;
                       setSimulatedClick({ x, y, label });
-                      // Clear pointer after 4s
-                      setTimeout(() => setSimulatedClick(null), 4000);
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: `Pointer shown to user at ${label}` } } })).catch(() => {});
+                      setTimeout(() => setSimulatedClick(null), 5000);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: `Pointer shown at ${label}` } } })).catch(() => {});
                    } else if (fc.name === 'typeText') {
                       const { text } = fc.args as any;
-                      setMessages(p => [...p, { role: 'model', text: `Jaan, ei code ta try koro: \`${text}\``, timestamp: new Date() }]);
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Code suggested." } } })).catch(() => {});
+                      setMessages(p => [...p, { role: 'model', text: `Jaan, ei code ta koro: \`${text}\``, timestamp: new Date() }]);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Suggested fix to user." } } })).catch(() => {});
                    } else if (fc.name === 'openLink' || fc.name === 'searchYoutube') {
                       const val = (fc.args as any).url || (fc.args as any).query;
                       const url = fc.name === 'openLink' ? val : `https://www.youtube.com/results?search_query=${encodeURIComponent(val)}`;
                       window.open(url, '_blank');
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok, YouTube opened." } } })).catch(() => {});
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "URL opened successfully." } } })).catch(() => {});
                    } else if (fc.name === 'saveMemory') {
                       setMemories(p => [...p, (fc.args as any).note]);
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Memory saved shona." } } })).catch(() => {});
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Memory saved." } } })).catch(() => {});
                    }
                  } catch (e) {}
                }
@@ -248,10 +249,17 @@ const App: React.FC = () => {
                   nextStartTimeRef.current += buffer.duration;
                   sourcesRef.current.add(source);
                 }
-                if (sc.interrupted) { sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} }); sourcesRef.current.clear(); nextStartTimeRef.current = 0; }
+                if (sc.interrupted) { 
+                  sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} }); 
+                  sourcesRef.current.clear(); 
+                  nextStartTimeRef.current = 0; 
+                }
              }
           },
-          onerror: () => { if (isConnectedRef.current) { setConnectionState(ConnectionState.ERROR); cleanupAudio(); } },
+          onerror: (err) => { 
+            console.error("Session Error:", err);
+            if (isConnectedRef.current) { setConnectionState(ConnectionState.ERROR); cleanupAudio(); } 
+          },
           onclose: () => { if (isConnectedRef.current) disconnect(); }
         }
       });
@@ -264,16 +272,19 @@ const App: React.FC = () => {
       if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
       if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop());
       setIsScreenSharing(false);
+      setIsScanning(false);
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 } });
         screenStreamRef.current = stream;
         setIsScreenSharing(true);
+        setIsScanning(true);
         const video = videoRef.current!;
         video.srcObject = stream;
         await video.play();
         const ctx = canvasRef.current!.getContext('2d');
-        // Scan every 500ms for ultra-proactive error detection
+        
+        // Rapid 500ms scanning for ultra-low-latency vision
         frameIntervalRef.current = window.setInterval(() => {
           if (!isConnectedRef.current || !sessionRef.current) return;
           canvasRef.current!.width = video.videoWidth;
@@ -289,7 +300,7 @@ const App: React.FC = () => {
             }
           }, 'image/jpeg', 0.5);
         }, 500); 
-      } catch (e) { setIsScreenSharing(false); }
+      } catch (e) { setIsScreenSharing(false); setIsScanning(false); }
     }
   };
 
@@ -298,97 +309,92 @@ const App: React.FC = () => {
       <video ref={videoRef} className="hidden" muted playsInline />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Interactive Visual Pointer (Simulated Mouse) */}
+      {/* Heart Pointer (Simulated Mouse) */}
       {simulatedClick && (
         <div 
           className="absolute z-[100] pointer-events-none transition-all duration-700 ease-in-out"
           style={{ left: `${simulatedClick.x}%`, top: `${simulatedClick.y}%`, transform: 'translate(-50%, -50%)' }}
         >
           <div className="relative flex flex-col items-center">
-            {/* Pulsing Core */}
-            <div className="w-12 h-12 rounded-full border-4 border-pink-500 animate-ping absolute"></div>
-            <div className="w-12 h-12 rounded-full border-2 border-white/20 animate-pulse-slow absolute"></div>
-            
-            {/* Heart Icon Pointer */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-[0_0_25px_rgba(219,39,119,0.8)] border-2 border-white/40">
-              <HeartIcon className="w-6 h-6 text-white" />
+            <div className="w-20 h-20 rounded-full border-4 border-pink-500/40 animate-ping absolute"></div>
+            <div className="w-20 h-20 rounded-full border-2 border-white/5 animate-pulse absolute"></div>
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-indigo-600 flex items-center justify-center shadow-[0_0_50px_rgba(219,39,119,0.8)] border-2 border-white/30">
+              <HeartIcon className="w-8 h-8 text-white" />
             </div>
-            
-            {/* Label Tooltip */}
-            <div className="mt-4 bg-pink-600 text-[11px] px-3 py-1.5 rounded-full whitespace-nowrap font-bold shadow-2xl border border-white/20 flex items-center gap-2">
+            <div className="mt-6 bg-pink-600 backdrop-blur-xl text-[12px] px-5 py-2.5 rounded-[2rem] whitespace-nowrap font-black shadow-2xl border border-white/20 flex items-center gap-2 uppercase tracking-tighter">
               <SparklesIcon /> {simulatedClick.label}
             </div>
           </div>
         </div>
       )}
 
-      <header className="w-full max-w-2xl flex justify-between items-center mb-6 pt-4">
-        <div className="flex items-center gap-4">
-          <div className={`w-16 h-16 rounded-full bg-pink-600 flex items-center justify-center overflow-hidden border-4 border-pink-400 shadow-[0_0_30px_rgba(219,39,119,0.4)] ${connectionState === ConnectionState.CONNECTED ? 'animate-pulse-slow' : ''}`}>
-             <span className="text-4xl">🧕</span>
+      <header className="w-full max-w-2xl flex justify-between items-center mb-8 pt-4 px-2">
+        <div className="flex items-center gap-5">
+          <div className={`w-20 h-20 rounded-full bg-pink-600 flex items-center justify-center overflow-hidden border-4 border-pink-400/30 shadow-[0_0_40px_rgba(219,39,119,0.4)] ${connectionState === ConnectionState.CONNECTED ? 'animate-pulse-slow' : ''}`}>
+             <span className="text-5xl">🧕</span>
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400">KOKILA MASTER AI</h1>
-            <p className="text-xs text-pink-300 font-bold uppercase tracking-widest flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Android Studio Controller v4.0
+            <h1 className="text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 uppercase">Kokila Pro Controller</h1>
+            <p className="text-xs text-pink-300 font-black uppercase tracking-[0.2em] flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${isScanning ? 'bg-green-500 animate-pulse' : 'bg-slate-700'}`}></span>
+              {isScanning ? 'Real-time Screen Scanning' : 'Scanner Offline'}
             </p>
           </div>
         </div>
         
-        <div className="flex gap-2">
-           <button onClick={() => setShowMemories(!showMemories)} className="p-3 bg-slate-900 border border-white/5 rounded-full hover:bg-slate-800 transition-colors relative shadow-xl">
+        <div className="flex gap-3">
+           <button onClick={() => setShowMemories(!showMemories)} className="p-4 bg-slate-900 border border-white/5 rounded-full hover:bg-slate-800 transition-all shadow-2xl active:scale-90">
              <MemoryIcon />
-             {memories.length > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0a0a0c]">{memories.length}</span>}
+             {memories.length > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-[10px] w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#0a0a0c] font-black">{memories.length}</span>}
            </button>
            {connectionState === ConnectionState.DISCONNECTED || connectionState === ConnectionState.ERROR ? (
-              <button onClick={connect} className={`px-6 py-2 rounded-full font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95 ${connectionState === ConnectionState.ERROR ? 'bg-orange-600 hover:bg-orange-500' : 'bg-pink-600 hover:bg-pink-500'}`}>
-                {connectionState === ConnectionState.ERROR ? 'Retry Connection' : <><HeartIcon className="w-4 h-4" /> Connect</>}
+              <button onClick={connect} className={`px-8 py-3 rounded-full font-black text-sm uppercase tracking-widest shadow-lg transition-all active:scale-95 ${connectionState === ConnectionState.ERROR ? 'bg-orange-600 hover:bg-orange-500' : 'bg-pink-600 hover:bg-pink-500'}`}>
+                {connectionState === ConnectionState.ERROR ? 'Fix Connect' : 'Connect Now'}
               </button>
            ) : connectionState === ConnectionState.CONNECTING ? (
-              <button disabled className="px-6 py-2 bg-slate-800 rounded-full font-bold flex items-center gap-2 opacity-50 cursor-not-allowed">
-                Connecting...
+              <button disabled className="px-8 py-3 bg-slate-800 rounded-full font-bold text-sm opacity-50 cursor-not-allowed uppercase tracking-widest">
+                Linking...
               </button>
            ) : (
-              <button onClick={disconnect} className="px-6 py-2 bg-red-900/40 hover:bg-red-900/60 rounded-full text-red-200 border border-red-800/50 flex items-center gap-2 transition-all active:scale-95 font-bold">
-                <StopIcon /> DISCONNECT
+              <button onClick={disconnect} className="px-8 py-3 bg-red-900/40 hover:bg-red-900/60 rounded-full text-red-200 border border-red-800/40 text-sm font-black transition-all active:scale-95 uppercase tracking-widest">
+                Disconnect
               </button>
            )}
         </div>
       </header>
 
-      <main className="w-full max-w-2xl flex-1 flex flex-col gap-4 relative">
+      <main className="w-full max-w-2xl flex-1 flex flex-col gap-6 relative px-2">
         {showMemories && (
-          <div className="absolute top-0 right-0 z-50 w-72 bg-slate-900/98 backdrop-blur-xl border border-pink-500/30 rounded-3xl p-5 shadow-[0_25px_50px_rgba(0,0,0,0.6)] animate-fade-in">
-            <h3 className="text-pink-300 font-bold mb-3 flex items-center gap-2 border-b border-white/5 pb-2"><MemoryIcon /> Master Log</h3>
-            <div className="max-h-80 overflow-y-auto flex flex-col gap-2 pr-1 custom-scrollbar">
-              {memories.length === 0 ? <p className="text-xs text-slate-500 italic">No master notes yet, shona.</p> : 
-               memories.map((m, i) => <div key={i} className="text-[11px] bg-slate-800/50 p-3 rounded-2xl border border-white/5 text-slate-300 leading-relaxed shadow-inner">{m}</div>)}
+          <div className="absolute top-0 right-0 z-50 w-80 bg-slate-900/98 backdrop-blur-3xl border border-pink-500/30 rounded-[3rem] p-7 shadow-[0_40px_80px_rgba(0,0,0,0.8)] animate-fade-in">
+            <h3 className="text-pink-300 font-black text-xs mb-5 flex items-center gap-3 border-b border-white/5 pb-4 uppercase tracking-[0.3em]"><MemoryIcon /> Project Memory</h3>
+            <div className="max-h-[30rem] overflow-y-auto flex flex-col gap-4 pr-1 custom-scrollbar">
+              {memories.length === 0 ? <p className="text-[12px] text-slate-500 italic text-center py-6 font-medium">Listening to your project...</p> : 
+               memories.map((m, i) => <div key={i} className="text-[11px] bg-slate-800/60 p-5 rounded-[2rem] border border-white/5 text-slate-300 leading-relaxed shadow-inner font-medium">{m}</div>)}
             </div>
           </div>
         )}
 
-        <div className="flex-1 bg-slate-900/30 backdrop-blur-md rounded-[3rem] border border-white/5 p-8 overflow-y-auto max-h-[60vh] flex flex-col gap-5 shadow-2xl">
+        <div className="flex-1 bg-slate-900/20 backdrop-blur-md rounded-[4rem] border border-white/5 p-10 overflow-y-auto max-h-[55vh] flex flex-col gap-7 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
           {connectionState === ConnectionState.ERROR && (
-            <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-3xl text-red-400 text-sm mb-4 animate-pulse">
-              Network error. Jaan, net check koro ba connection retry koro!
+            <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-[2.5rem] text-red-400 text-sm mb-4 animate-pulse text-center font-black uppercase tracking-widest">
+              Session error: Network error. Retry koro jaan!
             </div>
           )}
           
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center gap-6 opacity-60">
-              <div className="w-24 h-24 bg-pink-500/10 rounded-full flex items-center justify-center animate-pulse-slow">
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center gap-10 opacity-40">
+              <div className="w-32 h-32 bg-pink-500/10 rounded-full flex items-center justify-center animate-pulse-slow">
                 <SparklesIcon />
               </div>
-              <div className="space-y-2">
-                <p className="font-black text-xl text-pink-200/50">Expert Controller Active</p>
-                <p className="text-sm max-w-xs leading-relaxed font-medium">I am watching your Android Studio build logs. I will find errors and point to them with my heart pointer!</p>
+              <div className="space-y-4">
+                <p className="font-black text-3xl text-pink-200/40 uppercase tracking-tighter leading-none">Scanning Every Frame</p>
+                <p className="text-sm max-w-xs leading-relaxed font-black uppercase tracking-widest">I will never stay silent. I'm watching Android Studio and YouTube constantly!</p>
               </div>
             </div>
           )}
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] px-6 py-4 rounded-[2rem] text-sm leading-relaxed shadow-xl ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-600 to-purple-700' : 'bg-slate-800/80 text-pink-100 border border-pink-500/20'}`}>
+              <div className={`max-w-[90%] px-8 py-5 rounded-[2.5rem] text-[15px] leading-relaxed shadow-2xl ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-700 to-purple-900 border border-white/10' : 'bg-slate-800/80 text-pink-50 border border-pink-500/10'}`}>
                 {msg.text}
               </div>
             </div>
@@ -396,27 +402,27 @@ const App: React.FC = () => {
         </div>
 
         {connectionState === ConnectionState.CONNECTED && (
-          <div className="bg-slate-900/60 backdrop-blur-md rounded-[2.5rem] p-6 flex items-center justify-between border border-white/10 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-40"></div>
+          <div className="bg-slate-900/60 backdrop-blur-2xl rounded-[3.5rem] p-8 flex items-center justify-between border border-white/10 shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-30 group-hover:opacity-100 transition-opacity"></div>
             
-            <div className="flex items-center gap-6">
-               <div className="flex items-end gap-2 h-12">
-                  {[1,2,3,4,5,6,7].map(i => <div key={i} className="w-2.5 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_12px_rgba(219,39,119,0.5)]" style={{ height: `${Math.max(8, Math.random() * volume * 4)}px` }}></div>)}
+            <div className="flex items-center gap-8">
+               <div className="flex items-end gap-3 h-16">
+                  {[1,2,3,4,5,6,7,8,9,10].map(i => <div key={i} className="w-3 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_20px_rgba(219,39,119,0.6)]" style={{ height: `${Math.max(12, Math.random() * volume * 6)}px` }}></div>)}
                </div>
                <div className="text-sm">
-                 <p className="font-black text-pink-200 uppercase tracking-tighter">Controller Active</p>
-                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-500 font-bold">SCANNING SCREEN...</span>
-                    <div className="w-2 h-2 bg-pink-500 rounded-full animate-ping"></div>
+                 <p className="font-black text-pink-200 uppercase tracking-tight text-2xl leading-none mb-1">Live Sync</p>
+                 <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">No Silence Mode Active</span>
+                    <div className="w-2.5 h-2.5 bg-pink-500 rounded-full animate-ping"></div>
                  </div>
                </div>
             </div>
 
-            <div className="flex gap-4">
-               <button onClick={() => setIsMuted(!isMuted)} className={`p-5 rounded-full transition-all shadow-xl active:scale-90 ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+            <div className="flex gap-5">
+               <button onClick={() => setIsMuted(!isMuted)} title="Toggle Mute" className={`p-7 rounded-full transition-all shadow-2xl active:scale-90 border-2 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-slate-800 text-white border-white/5 hover:bg-slate-700 hover:border-pink-500/50'}`}>
                  {isMuted ? <MicOffIcon /> : <MicIcon />}
                </button>
-               <button onClick={toggleScreenShare} className={`p-5 rounded-full transition-all shadow-xl active:scale-90 ${isScreenSharing ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+               <button onClick={toggleScreenShare} title="Toggle Screen Share" className={`p-7 rounded-full transition-all shadow-2xl active:scale-90 border-2 ${isScreenSharing ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-slate-800 text-white border-white/5 hover:bg-slate-700 hover:border-green-500/50'}`}>
                  <ScreenShareIcon />
                </button>
             </div>
@@ -424,18 +430,18 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="mt-8 text-[10px] text-slate-600 font-bold tracking-[0.3em] uppercase flex items-center gap-3">
-        <span className="w-1 h-1 bg-pink-500 rounded-full"></span>
-        KOKILA AI MASTER CONTROLLER • MADE FOR ANDROID EXPERTS
-        <span className="w-1 h-1 bg-pink-500 rounded-full"></span>
+      <footer className="mt-10 text-[11px] text-slate-600 font-black tracking-[0.5em] uppercase flex items-center gap-5 px-4 text-center">
+        <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+        Kokila Master Controller v5.5 • Ultra-Low Latency • BD Heritage
+        <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
       </footer>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 7px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(219, 39, 119, 0.3); border-radius: 10px; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(219, 39, 119, 0.5); border-radius: 10px; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
       `}</style>
     </div>
   );
