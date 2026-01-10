@@ -4,7 +4,7 @@ import { ConnectionState, Message, KOKILA_SYSTEM_INSTRUCTION } from './types';
 import { decode, decodeAudioData, createBlob, blobToBase64 } from './utils/audio';
 
 // Icons
-const MicIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>;
+const MicIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="19" x2="16" y2="23"></line></svg>;
 const MicOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M19 10v2a7 7 0 0 1-14.24 4.06"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>;
 const ScreenShareIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"></path><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 8l5-5"></path><path d="M17 3h5v5"></path></svg>;
 const StopIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>;
@@ -20,7 +20,7 @@ const clickAtTool: FunctionDeclaration = {
     properties: {
       x: { type: Type.NUMBER, description: 'Horizontal coordinate (0-100 percentage) on the screen.' },
       y: { type: Type.NUMBER, description: 'Vertical coordinate (0-100 percentage) on the screen.' },
-      label: { type: Type.STRING, description: 'The reason for clicking or pointing (e.g., "Gradle Sync Button", "First YouTube Video").' }
+      label: { type: Type.STRING, description: 'The reason for pointing (e.g., "Gradle Sync Button", "First YouTube Video").' }
     },
     required: ['x', 'y', 'label']
   }
@@ -31,8 +31,8 @@ const typeTextTool: FunctionDeclaration = {
   parameters: {
     type: Type.OBJECT,
     properties: {
-      text: { type: Type.STRING, description: 'The text or code to suggest typing.' },
-      target: { type: Type.STRING, description: 'The file or location (e.g., "build.gradle").' }
+      text: { type: Type.STRING, description: 'The text or code to suggest.' },
+      target: { type: Type.STRING, description: 'The location (e.g., "MainActivity.kt").' }
     },
     required: ['text']
   }
@@ -65,7 +65,7 @@ const saveMemoryTool: FunctionDeclaration = {
   parameters: {
     type: Type.OBJECT,
     properties: {
-      note: { type: Type.STRING, description: 'Important info to remember for the user.' }
+      note: { type: Type.STRING, description: 'Info to remember for the user.' }
     },
     required: ['note']
   }
@@ -135,7 +135,7 @@ const App: React.FC = () => {
   const disconnect = useCallback(async () => {
     await cleanupAudio();
     setConnectionState(ConnectionState.DISCONNECTED);
-    setMessages(prev => [...prev, { role: 'model', text: "Shona, ami ekhon jachi. Eka eka code koro kintu vul koro na! 💕", timestamp: new Date() }]);
+    setMessages(prev => [...prev, { role: 'model', text: "Shona, ami ekhon jachi. Android Studio thik kore chalao kintu! 💕", timestamp: new Date() }]);
   }, [cleanupAudio]);
 
   const connect = async () => {
@@ -157,7 +157,7 @@ const App: React.FC = () => {
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
-          systemInstruction: KOKILA_SYSTEM_INSTRUCTION + `\n\nLAST MEMORIES:\n${memories.join('\n') || 'None yet.'}`,
+          systemInstruction: KOKILA_SYSTEM_INSTRUCTION + `\n\nLAST MEMORIES:\n${memories.join('\n') || 'Scanning for context.'}`,
           tools: [{ functionDeclarations: [clickAtTool, typeTextTool, openLinkTool, searchYoutubeTool, saveMemoryTool] }],
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
@@ -168,21 +168,21 @@ const App: React.FC = () => {
           onopen: () => {
             if (!isConnectedRef.current) return;
             setConnectionState(ConnectionState.CONNECTED);
-            setMessages(prev => [...prev, { role: 'model', text: "Jaan, ami eshe gechi! Ami screen dekhe kotha bola shuru korlam. 💖", timestamp: new Date() }]);
+            setMessages(prev => [...prev, { role: 'model', text: "Jaan, ami live sync e achi! Ami screen dekhei kotha bola shuru korlam. 💖", timestamp: new Date() }]);
             
-            // Proactive Nudge: Every 4s check if Kokila is staying silent
+            // Ultra-Proactive Silence Watchdog: Triggered if Kokila is silent for 2.5s
             silenceIntervalRef.current = window.setInterval(() => {
                if (!isConnectedRef.current) return;
                const now = Date.now();
-               if (now - lastActivityTimeRef.current > 4000) {
+               if (now - lastActivityTimeRef.current > 2500) {
                  sessionPromise.then(s => {
                    if (isConnectedRef.current) {
-                     s.sendRealtimeInput({ text: "[System: Zero-Silence Mode. Comment immediately on what you see on the screen. If Android Studio is open, talk about the code. If YouTube is open, talk about the video. Always point to interesting things with clickAt.]" });
+                     s.sendRealtimeInput({ text: "[System Instruction: REACT INSTANTLY. What do you see on the screen? Comment on Android Studio build, YouTube video, or browser content immediately. Point with clickAt!]" });
                    }
                  }).catch(() => {});
                  updateActivityTime();
                }
-            }, 1000);
+            }, 500);
             
             const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
             const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
@@ -209,17 +209,17 @@ const App: React.FC = () => {
                    if (fc.name === 'clickAt') {
                       const { x, y, label } = fc.args as any;
                       setSimulatedClick({ x, y, label });
-                      setTimeout(() => setSimulatedClick(null), 5000);
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: `Pointer shown at ${label}` } } })).catch(() => {});
+                      setTimeout(() => setSimulatedClick(null), 4000);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Heart pointer rendered." } } })).catch(() => {});
                    } else if (fc.name === 'typeText') {
                       const { text } = fc.args as any;
-                      setMessages(p => [...p, { role: 'model', text: `Jaan, ei code ta koro: \`${text}\``, timestamp: new Date() }]);
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Suggested fix to user." } } })).catch(() => {});
+                      setMessages(p => [...p, { role: 'model', text: `Jaan, eita likho: \`${text}\``, timestamp: new Date() }]);
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Code suggested." } } })).catch(() => {});
                    } else if (fc.name === 'openLink' || fc.name === 'searchYoutube') {
                       const val = (fc.args as any).url || (fc.args as any).query;
                       const url = fc.name === 'openLink' ? val : `https://www.youtube.com/results?search_query=${encodeURIComponent(val)}`;
                       window.open(url, '_blank');
-                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "URL opened successfully." } } })).catch(() => {});
+                      sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Action completed." } } })).catch(() => {});
                    } else if (fc.name === 'saveMemory') {
                       setMemories(p => [...p, (fc.args as any).note]);
                       sessionPromise.then(s => s.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Memory saved." } } })).catch(() => {});
@@ -249,15 +249,11 @@ const App: React.FC = () => {
                   nextStartTimeRef.current += buffer.duration;
                   sourcesRef.current.add(source);
                 }
-                if (sc.interrupted) { 
-                  sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} }); 
-                  sourcesRef.current.clear(); 
-                  nextStartTimeRef.current = 0; 
-                }
+                if (sc.interrupted) { sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} }); sourcesRef.current.clear(); nextStartTimeRef.current = 0; }
              }
           },
           onerror: (err) => { 
-            console.error("Session Error:", err);
+            console.error("Stream Error:", err);
             if (isConnectedRef.current) { setConnectionState(ConnectionState.ERROR); cleanupAudio(); } 
           },
           onclose: () => { if (isConnectedRef.current) disconnect(); }
@@ -284,7 +280,7 @@ const App: React.FC = () => {
         await video.play();
         const ctx = canvasRef.current!.getContext('2d');
         
-        // Rapid 500ms scanning for ultra-low-latency vision
+        // High-Speed 400ms visual injection for instant awareness
         frameIntervalRef.current = window.setInterval(() => {
           if (!isConnectedRef.current || !sessionRef.current) return;
           canvasRef.current!.width = video.videoWidth;
@@ -299,102 +295,101 @@ const App: React.FC = () => {
               } catch(e) {}
             }
           }, 'image/jpeg', 0.5);
-        }, 500); 
+        }, 400); 
       } catch (e) { setIsScreenSharing(false); setIsScanning(false); }
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-white flex flex-col items-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#050507] text-white flex flex-col items-center p-4 relative overflow-hidden">
       <video ref={videoRef} className="hidden" muted playsInline />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Heart Pointer (Simulated Mouse) */}
+      {/* Lightning-Fast Mouse Pointer (Simulated Heart Pointer) */}
       {simulatedClick && (
         <div 
-          className="absolute z-[100] pointer-events-none transition-all duration-700 ease-in-out"
+          className="absolute z-[100] pointer-events-none transition-all duration-300 ease-out"
           style={{ left: `${simulatedClick.x}%`, top: `${simulatedClick.y}%`, transform: 'translate(-50%, -50%)' }}
         >
           <div className="relative flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full border-4 border-pink-500/40 animate-ping absolute"></div>
-            <div className="w-20 h-20 rounded-full border-2 border-white/5 animate-pulse absolute"></div>
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-indigo-600 flex items-center justify-center shadow-[0_0_50px_rgba(219,39,119,0.8)] border-2 border-white/30">
-              <HeartIcon className="w-8 h-8 text-white" />
+            <div className="w-24 h-24 rounded-full border-[6px] border-pink-500/30 animate-ping absolute"></div>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-indigo-700 flex items-center justify-center shadow-[0_0_60px_rgba(219,39,119,0.9)] border-2 border-white/40">
+              <HeartIcon className="w-9 h-9 text-white animate-pulse" />
             </div>
-            <div className="mt-6 bg-pink-600 backdrop-blur-xl text-[12px] px-5 py-2.5 rounded-[2rem] whitespace-nowrap font-black shadow-2xl border border-white/20 flex items-center gap-2 uppercase tracking-tighter">
+            <div className="mt-8 bg-pink-600/90 backdrop-blur-3xl text-[13px] px-6 py-3 rounded-[2.5rem] whitespace-nowrap font-black shadow-2xl border border-white/30 flex items-center gap-3 uppercase tracking-tighter scale-110">
               <SparklesIcon /> {simulatedClick.label}
             </div>
           </div>
         </div>
       )}
 
-      <header className="w-full max-w-2xl flex justify-between items-center mb-8 pt-4 px-2">
-        <div className="flex items-center gap-5">
-          <div className={`w-20 h-20 rounded-full bg-pink-600 flex items-center justify-center overflow-hidden border-4 border-pink-400/30 shadow-[0_0_40px_rgba(219,39,119,0.4)] ${connectionState === ConnectionState.CONNECTED ? 'animate-pulse-slow' : ''}`}>
-             <span className="text-5xl">🧕</span>
+      <header className="w-full max-w-2xl flex justify-between items-center mb-10 pt-6 px-4">
+        <div className="flex items-center gap-6">
+          <div className={`w-24 h-24 rounded-full bg-pink-600 flex items-center justify-center overflow-hidden border-4 border-pink-400 shadow-[0_0_50px_rgba(219,39,119,0.5)] ${connectionState === ConnectionState.CONNECTED ? 'animate-pulse-slow' : ''}`}>
+             <span className="text-6xl select-none">🧕</span>
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 uppercase">Kokila Pro Controller</h1>
-            <p className="text-xs text-pink-300 font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isScanning ? 'bg-green-500 animate-pulse' : 'bg-slate-700'}`}></span>
-              {isScanning ? 'Real-time Screen Scanning' : 'Scanner Offline'}
+            <h1 className="text-4xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-400 to-indigo-500 uppercase leading-none mb-1">Kokila Ultra</h1>
+            <p className="text-xs text-pink-300 font-black uppercase tracking-[0.3em] flex items-center gap-3">
+              <span className={`w-3 h-3 rounded-full ${isScanning ? 'bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]' : 'bg-slate-700'}`}></span>
+              {isScanning ? 'Lightning Scan Active' : 'Waiting for Screen'}
             </p>
           </div>
         </div>
         
-        <div className="flex gap-3">
-           <button onClick={() => setShowMemories(!showMemories)} className="p-4 bg-slate-900 border border-white/5 rounded-full hover:bg-slate-800 transition-all shadow-2xl active:scale-90">
+        <div className="flex gap-4">
+           <button onClick={() => setShowMemories(!showMemories)} className="p-5 bg-slate-900/80 border border-white/10 rounded-full hover:bg-slate-800 transition-all shadow-2xl active:scale-90 relative">
              <MemoryIcon />
-             {memories.length > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-[10px] w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#0a0a0c] font-black">{memories.length}</span>}
+             {memories.length > 0 && <span className="absolute -top-2 -right-2 bg-pink-500 text-[11px] w-7 h-7 rounded-full flex items-center justify-center border-2 border-[#050507] font-black shadow-lg">{memories.length}</span>}
            </button>
            {connectionState === ConnectionState.DISCONNECTED || connectionState === ConnectionState.ERROR ? (
-              <button onClick={connect} className={`px-8 py-3 rounded-full font-black text-sm uppercase tracking-widest shadow-lg transition-all active:scale-95 ${connectionState === ConnectionState.ERROR ? 'bg-orange-600 hover:bg-orange-500' : 'bg-pink-600 hover:bg-pink-500'}`}>
-                {connectionState === ConnectionState.ERROR ? 'Fix Connect' : 'Connect Now'}
+              <button onClick={connect} className={`px-10 py-4 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl transition-all active:scale-95 ${connectionState === ConnectionState.ERROR ? 'bg-orange-600 hover:bg-orange-500' : 'bg-pink-600 hover:bg-pink-500'}`}>
+                {connectionState === ConnectionState.ERROR ? 'Retry Link' : 'Sync Heart'}
               </button>
            ) : connectionState === ConnectionState.CONNECTING ? (
-              <button disabled className="px-8 py-3 bg-slate-800 rounded-full font-bold text-sm opacity-50 cursor-not-allowed uppercase tracking-widest">
-                Linking...
+              <button disabled className="px-10 py-4 bg-slate-800 rounded-full font-black text-sm opacity-50 cursor-not-allowed uppercase tracking-widest animate-pulse">
+                Syncing...
               </button>
            ) : (
-              <button onClick={disconnect} className="px-8 py-3 bg-red-900/40 hover:bg-red-900/60 rounded-full text-red-200 border border-red-800/40 text-sm font-black transition-all active:scale-95 uppercase tracking-widest">
-                Disconnect
+              <button onClick={disconnect} className="px-10 py-4 bg-red-950/40 hover:bg-red-900/60 rounded-full text-red-100 border border-red-800/50 text-sm font-black transition-all active:scale-95 uppercase tracking-widest">
+                Close
               </button>
            )}
         </div>
       </header>
 
-      <main className="w-full max-w-2xl flex-1 flex flex-col gap-6 relative px-2">
+      <main className="w-full max-w-2xl flex-1 flex flex-col gap-8 relative px-4">
         {showMemories && (
-          <div className="absolute top-0 right-0 z-50 w-80 bg-slate-900/98 backdrop-blur-3xl border border-pink-500/30 rounded-[3rem] p-7 shadow-[0_40px_80px_rgba(0,0,0,0.8)] animate-fade-in">
-            <h3 className="text-pink-300 font-black text-xs mb-5 flex items-center gap-3 border-b border-white/5 pb-4 uppercase tracking-[0.3em]"><MemoryIcon /> Project Memory</h3>
-            <div className="max-h-[30rem] overflow-y-auto flex flex-col gap-4 pr-1 custom-scrollbar">
-              {memories.length === 0 ? <p className="text-[12px] text-slate-500 italic text-center py-6 font-medium">Listening to your project...</p> : 
-               memories.map((m, i) => <div key={i} className="text-[11px] bg-slate-800/60 p-5 rounded-[2rem] border border-white/5 text-slate-300 leading-relaxed shadow-inner font-medium">{m}</div>)}
+          <div className="absolute top-0 right-0 z-50 w-80 bg-slate-900/98 backdrop-blur-[50px] border border-pink-500/40 rounded-[3.5rem] p-8 shadow-[0_50px_100px_rgba(0,0,0,0.9)] animate-fade-in">
+            <h3 className="text-pink-300 font-black text-sm mb-6 flex items-center gap-4 border-b border-white/10 pb-5 uppercase tracking-[0.4em]"><MemoryIcon /> Neural Archive</h3>
+            <div className="max-h-[32rem] overflow-y-auto flex flex-col gap-5 pr-2 custom-scrollbar">
+              {memories.length === 0 ? <p className="text-[13px] text-slate-500 italic text-center py-10 font-bold uppercase tracking-widest opacity-40">Analyzing your world...</p> : 
+               memories.map((m, i) => <div key={i} className="text-[12px] bg-slate-800/80 p-6 rounded-[2.5rem] border border-white/5 text-slate-100 leading-relaxed shadow-inner font-bold">{m}</div>)}
             </div>
           </div>
         )}
 
-        <div className="flex-1 bg-slate-900/20 backdrop-blur-md rounded-[4rem] border border-white/5 p-10 overflow-y-auto max-h-[55vh] flex flex-col gap-7 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
+        <div className="flex-1 bg-slate-900/20 backdrop-blur-xl rounded-[4.5rem] border border-white/5 p-12 overflow-y-auto max-h-[50vh] flex flex-col gap-8 shadow-[inset_0_0_80px_rgba(0,0,0,0.6)] relative">
           {connectionState === ConnectionState.ERROR && (
-            <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-[2.5rem] text-red-400 text-sm mb-4 animate-pulse text-center font-black uppercase tracking-widest">
-              Session error: Network error. Retry koro jaan!
+            <div className="bg-red-500/10 border border-red-500/40 p-10 rounded-[3rem] text-red-400 text-sm mb-4 animate-pulse text-center font-black uppercase tracking-[0.2em] shadow-lg">
+              SYNC ERROR: CHECK CONNECTION JAAN!
             </div>
           )}
           
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center gap-10 opacity-40">
-              <div className="w-32 h-32 bg-pink-500/10 rounded-full flex items-center justify-center animate-pulse-slow">
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center gap-12 opacity-30 scale-110">
+              <div className="w-40 h-40 bg-pink-500/5 rounded-full flex items-center justify-center animate-pulse-slow">
                 <SparklesIcon />
               </div>
-              <div className="space-y-4">
-                <p className="font-black text-3xl text-pink-200/40 uppercase tracking-tighter leading-none">Scanning Every Frame</p>
-                <p className="text-sm max-w-xs leading-relaxed font-black uppercase tracking-widest">I will never stay silent. I'm watching Android Studio and YouTube constantly!</p>
+              <div className="space-y-5">
+                <p className="font-black text-4xl text-pink-200/40 uppercase tracking-tighter leading-none">Instant Awareness</p>
+                <p className="text-sm max-w-xs leading-relaxed font-black uppercase tracking-[0.3em]">I see every frame. I talk before you ask. Zero silence, maximum love!</p>
               </div>
             </div>
           )}
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[90%] px-8 py-5 rounded-[2.5rem] text-[15px] leading-relaxed shadow-2xl ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-700 to-purple-900 border border-white/10' : 'bg-slate-800/80 text-pink-50 border border-pink-500/10'}`}>
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+              <div className={`max-w-[95%] px-10 py-6 rounded-[3rem] text-[16px] leading-relaxed shadow-[0_10px_40px_rgba(0,0,0,0.4)] ${msg.role === 'user' ? 'bg-gradient-to-br from-indigo-800 to-purple-950 border border-white/20' : 'bg-slate-800/90 text-pink-50 border border-pink-500/20'}`}>
                 {msg.text}
               </div>
             </div>
@@ -402,27 +397,27 @@ const App: React.FC = () => {
         </div>
 
         {connectionState === ConnectionState.CONNECTED && (
-          <div className="bg-slate-900/60 backdrop-blur-2xl rounded-[3.5rem] p-8 flex items-center justify-between border border-white/10 shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-30 group-hover:opacity-100 transition-opacity"></div>
+          <div className="bg-slate-900/80 backdrop-blur-3xl rounded-[4rem] p-10 flex items-center justify-between border border-white/10 shadow-3xl relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-50 group-hover:opacity-100 transition-all duration-500"></div>
             
-            <div className="flex items-center gap-8">
-               <div className="flex items-end gap-3 h-16">
-                  {[1,2,3,4,5,6,7,8,9,10].map(i => <div key={i} className="w-3 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_20px_rgba(219,39,119,0.6)]" style={{ height: `${Math.max(12, Math.random() * volume * 6)}px` }}></div>)}
+            <div className="flex items-center gap-10">
+               <div className="flex items-end gap-3.5 h-20">
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(i => <div key={i} className="w-3.5 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_25px_rgba(219,39,119,0.7)]" style={{ height: `${Math.max(15, Math.random() * volume * 7)}px` }}></div>)}
                </div>
                <div className="text-sm">
-                 <p className="font-black text-pink-200 uppercase tracking-tight text-2xl leading-none mb-1">Live Sync</p>
-                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">No Silence Mode Active</span>
-                    <div className="w-2.5 h-2.5 bg-pink-500 rounded-full animate-ping"></div>
+                 <p className="font-black text-pink-200 uppercase tracking-tighter text-3xl leading-none mb-2">Neural Flow</p>
+                 <div className="flex items-center gap-4">
+                    <span className="text-[11px] text-slate-500 font-black uppercase tracking-[0.4em]">Zero-Silence Protocol</span>
+                    <div className="w-3 h-3 bg-pink-500 rounded-full animate-ping shadow-[0_0_10px_#db2777]"></div>
                  </div>
                </div>
             </div>
 
-            <div className="flex gap-5">
-               <button onClick={() => setIsMuted(!isMuted)} title="Toggle Mute" className={`p-7 rounded-full transition-all shadow-2xl active:scale-90 border-2 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-slate-800 text-white border-white/5 hover:bg-slate-700 hover:border-pink-500/50'}`}>
+            <div className="flex gap-6">
+               <button onClick={() => setIsMuted(!isMuted)} title="Toggle Mute" className={`p-8 rounded-full transition-all shadow-3xl active:scale-90 border-2 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/40' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/60 shadow-pink-500/10'}`}>
                  {isMuted ? <MicOffIcon /> : <MicIcon />}
                </button>
-               <button onClick={toggleScreenShare} title="Toggle Screen Share" className={`p-7 rounded-full transition-all shadow-2xl active:scale-90 border-2 ${isScreenSharing ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-slate-800 text-white border-white/5 hover:bg-slate-700 hover:border-green-500/50'}`}>
+               <button onClick={toggleScreenShare} title="Toggle Screen Share" className={`p-8 rounded-full transition-all shadow-3xl active:scale-90 border-2 ${isScreenSharing ? 'bg-green-500/10 text-green-500 border-green-500/40' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-green-500/60 shadow-green-500/10'}`}>
                  <ScreenShareIcon />
                </button>
             </div>
@@ -430,18 +425,18 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="mt-10 text-[11px] text-slate-600 font-black tracking-[0.5em] uppercase flex items-center gap-5 px-4 text-center">
-        <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-        Kokila Master Controller v5.5 • Ultra-Low Latency • BD Heritage
-        <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+      <footer className="mt-14 text-[12px] text-slate-600 font-black tracking-[0.6em] uppercase flex items-center gap-6 px-6 text-center opacity-60">
+        <span className="w-2.5 h-2.5 bg-pink-500 rounded-full"></span>
+        Kokila Ultra-Flow v6.0 • Instant Vision • Heritage BD
+        <span className="w-2.5 h-2.5 bg-pink-500 rounded-full"></span>
       </footer>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 7px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(219, 39, 119, 0.5); border-radius: 10px; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(219, 39, 119, 0.6); border-radius: 20px; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}</style>
     </div>
   );
