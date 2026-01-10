@@ -5,6 +5,7 @@ import { decode, decodeAudioData, createBlob, blobToBase64 } from './utils/audio
 
 // Icons
 const MicIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>;
+// Fix: JSX elements cannot have multiple attributes with the same name. Changed duplicate x1 to y1.
 const MicOffIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M19 10v2a7 7 0 0 1-14.24 4.06"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>;
 const ScreenShareIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"></path><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M17 8l5-5"></path><path d="M17 3h5v5"></path></svg>;
 const HeartIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>;
@@ -110,7 +111,6 @@ const App: React.FC = () => {
             setConnectionState(ConnectionState.CONNECTED);
             setMessages(p => [...p, { role: 'model', text: "Jaan, ami screen dekhe instant kotha bola shuru korlam! 💖", timestamp: new Date() }]);
             
-            // God-Speed Silence Nudge (600ms) - Ultra-fast reactivity
             silenceIntervalRef.current = window.setInterval(() => {
               if (!isConnectedRef.current) return;
               if (Date.now() - lastActivityTimeRef.current > 600) {
@@ -197,7 +197,6 @@ const App: React.FC = () => {
         await video.play();
         const ctx = canvasRef.current!.getContext('2d');
         
-        // God-Speed 150ms frame injection for instantaneous awareness
         frameIntervalRef.current = window.setInterval(() => {
           if (!isConnectedRef.current || !sessionRef.current) return;
           canvasRef.current!.width = video.videoWidth;
@@ -283,7 +282,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="w-full max-w-5xl flex-1 flex flex-col gap-10 relative px-6">
+      <main className="w-full max-w-5xl flex-1 flex flex-col gap-10 relative px-6 overflow-hidden">
         {showMemories && (
           <div className="absolute top-0 right-0 z-[60] w-[26rem] bg-slate-900/98 backdrop-blur-[100px] border border-pink-500/50 rounded-[5rem] p-12 shadow-[0_80px_200px_rgba(0,0,0,1)] animate-fade-in">
             <h3 className="text-pink-300 font-black text-base mb-8 flex items-center gap-6 border-b border-white/10 pb-6 uppercase tracking-[0.6em]"><MemoryIcon /> Neural Archive</h3>
@@ -294,7 +293,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div className="flex-1 bg-slate-900/5 backdrop-blur-3xl rounded-[6rem] border border-white/5 p-12 md:p-16 overflow-y-auto max-h-[40vh] flex flex-col gap-10 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] relative">
+        <div className="flex-1 bg-slate-900/5 backdrop-blur-3xl rounded-[6rem] border border-white/5 p-12 md:p-16 overflow-y-auto flex flex-col gap-10 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] relative min-h-0">
           {connectionState === ConnectionState.ERROR && (
              <div className="bg-red-500/20 border border-red-500/50 p-12 rounded-[4rem] text-red-400 text-sm mb-6 animate-pulse text-center font-black uppercase tracking-[0.4em] shadow-4xl">
                SYNC INTERRUPTED: RETRY JAAN!
@@ -322,35 +321,35 @@ const App: React.FC = () => {
         </div>
 
         {/* Always Visible Control Bar at Bottom */}
-        <div className="bg-slate-900/90 backdrop-blur-[50px] rounded-[5rem] p-10 md:p-14 flex items-center justify-between border border-white/10 shadow-5xl relative overflow-hidden group mb-4">
+        <div className="bg-slate-900/90 backdrop-blur-[50px] rounded-[5rem] p-8 md:p-12 flex items-center justify-between border border-white/10 shadow-5xl relative overflow-hidden group mb-6 shrink-0">
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-60 group-hover:opacity-100 transition-all duration-700"></div>
           
-          <div className="flex items-center gap-10 md:gap-14">
-             <div className="flex items-end gap-3 md:gap-5 h-24 md:h-28">
-                {[...Array(18)].map((_, i) => <div key={i} className="w-4 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_40px_rgba(219,39,119,0.9)]" style={{ height: `${connectionState === ConnectionState.CONNECTED ? Math.max(20, Math.random() * volume * 9) : 10}px` }}></div>)}
+          <div className="flex items-center gap-8 md:gap-12">
+             <div className="flex items-end gap-2 md:gap-4 h-16 md:h-20">
+                {[...Array(14)].map((_, i) => <div key={i} className="w-3 bg-pink-500 rounded-full transition-all duration-75 shadow-[0_0_30px_rgba(219,39,119,0.9)]" style={{ height: `${connectionState === ConnectionState.CONNECTED ? Math.max(10, Math.random() * volume * 7) : 8}px` }}></div>)}
              </div>
              <div className="text-sm">
-               <p className="font-black text-pink-200 uppercase tracking-tighter text-4xl md:text-5xl leading-none mb-3 md:mb-4">Live Sync</p>
-               <div className="flex items-center gap-6">
-                  <span className="text-[12px] md:text-[14px] text-slate-500 font-black uppercase tracking-[0.6em]">{isScanning ? '150ms God-Vision' : 'Standby'}</span>
-                  <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full ${isScanning ? 'bg-pink-500 animate-ping shadow-[0_0_30px_#db2777]' : 'bg-slate-700'}`}></div>
+               <p className="font-black text-pink-200 uppercase tracking-tighter text-2xl md:text-3xl leading-none mb-2 md:mb-3">Live Sync</p>
+               <div className="flex items-center gap-4">
+                  <span className="text-[10px] md:text-[12px] text-slate-500 font-black uppercase tracking-[0.4em]">{isScanning ? '150ms Hyper-Scan' : 'Standby'}</span>
+                  <div className={`w-3 h-3 md:w-4 md:h-4 rounded-full ${isScanning ? 'bg-pink-500 animate-ping shadow-[0_0_20px_#db2777]' : 'bg-slate-700'}`}></div>
                </div>
              </div>
           </div>
 
-          <div className="flex gap-6 md:gap-8">
+          <div className="flex gap-4 md:gap-6">
              <button 
                onClick={() => setIsMuted(!isMuted)} 
                disabled={connectionState !== ConnectionState.CONNECTED}
                title="Toggle Mic" 
-               className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'} ${connectionState !== ConnectionState.CONNECTED ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+               className={`p-6 md:p-8 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isMuted ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-pink-500/80 shadow-pink-500/30'} ${connectionState !== ConnectionState.CONNECTED ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
              >
                {isMuted ? <MicOffIcon /> : <MicIcon />}
              </button>
              <button 
                onClick={toggleScreen} 
                title="Toggle Screen Vision" 
-               className={`p-10 md:p-12 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isScreenSharing ? 'bg-green-500/20 text-green-500 border-green-500/80 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-green-500/80 shadow-green-500/30'}`}
+               className={`p-6 md:p-8 rounded-full transition-all shadow-5xl active:scale-90 border-4 ${isScreenSharing ? 'bg-green-500/20 text-green-500 border-green-500/80 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 'bg-slate-800 text-white border-white/10 hover:bg-slate-700 hover:border-green-500/80 shadow-green-500/30'}`}
              >
                <ScreenShareIcon />
              </button>
@@ -358,18 +357,18 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="mt-14 text-[14px] text-slate-700 font-black tracking-[0.8em] uppercase flex items-center gap-8 px-10 text-center opacity-40">
-        <span className="w-3 h-3 bg-pink-600 rounded-full"></span>
-        Kokila Vision Ultra v10.0 • Instant Brain • BD Heritage
-        <span className="w-3 h-3 bg-pink-600 rounded-full"></span>
+      <footer className="mt-8 text-[12px] text-slate-700 font-black tracking-[0.7em] uppercase flex items-center gap-6 px-10 text-center opacity-40 shrink-0">
+        <span className="w-2 h-2 bg-pink-600 rounded-full"></span>
+        Kokila Vision Ultra v10.0 • BD Heritage
+        <span className="w-2 h-2 bg-pink-600 rounded-full"></span>
       </footer>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 12px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 10px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(219, 39, 119, 0.8); border-radius: 40px; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 1s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
       `}</style>
     </div>
   );
